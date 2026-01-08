@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Calendar, Clock } from 'lucide-react';
+import { Calendar, Clock, Star, Tv } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -24,13 +24,16 @@ export default function SchedulePage() {
       try {
         const allSchedule: Record<string, any[]> = {};
         
-        // Fetch all days in parallel
-        await Promise.all(
-          days.map(async (day) => {
+        // Fetch days sequentially to avoid rate limiting
+        for (const day of days) {
+          try {
             const data = await fetchAiringSchedule(day);
             allSchedule[day] = data;
-          })
-        );
+          } catch (error) {
+            console.error(`Failed to fetch ${day} schedule:`, error);
+            allSchedule[day] = [];
+          }
+        }
         
         setSchedule(allSchedule);
       } catch (error) {
@@ -43,33 +46,55 @@ export default function SchedulePage() {
     loadSchedule();
   }, []);
 
-  const formatTime = (time: string) => {
-    if (!time) return '--:--';
-    const date = new Date(time);
-    return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+  const formatTime = (broadcastInfo: any) => {
+    if (!broadcastInfo?.time) return 'TBA';
+    return broadcastInfo.time;
+  };
+
+  const container = {
+    hidden: { opacity: 0 },
+    show: {
+      opacity: 1,
+      transition: { staggerChildren: 0.03 }
+    }
+  };
+
+  const item = {
+    hidden: { opacity: 0, x: -20 },
+    show: { opacity: 1, x: 0 }
   };
 
   return (
     <Layout>
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
-        <div className="mb-8">
+        <motion.div 
+          className="mb-8"
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+        >
           <div className="flex items-center gap-3 mb-2">
             <Calendar className="w-8 h-8 text-primary" />
             <h1 className="text-3xl md:text-4xl font-bold text-foreground">Airing Schedule</h1>
           </div>
           <p className="text-muted-foreground">See when your favorite anime airs</p>
-        </div>
+        </motion.div>
 
         {/* Day tabs */}
         <Tabs value={activeDay} onValueChange={setActiveDay}>
-          <TabsList className="mb-8 flex-wrap">
-            {days.map((day, i) => (
-              <TabsTrigger key={day} value={day} className="capitalize">
-                {dayLabels[i]}
-              </TabsTrigger>
-            ))}
-          </TabsList>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+          >
+            <TabsList className="mb-8 flex-wrap">
+              {days.map((day, i) => (
+                <TabsTrigger key={day} value={day} className="capitalize">
+                  {dayLabels[i]}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </motion.div>
 
           {days.map((day) => (
             <TabsContent key={day} value={day}>
@@ -80,23 +105,33 @@ export default function SchedulePage() {
                   ))}
                 </div>
               ) : schedule[day]?.length > 0 ? (
-                <div className="space-y-4">
-                  {schedule[day].map((anime, index) => (
+                <motion.div 
+                  className="space-y-4"
+                  variants={container}
+                  initial="hidden"
+                  animate="show"
+                >
+                  {schedule[day].map((anime) => (
                     <motion.div
                       key={anime.mal_id}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: index * 0.02 }}
+                      variants={item}
+                      whileHover={{ scale: 1.01, x: 5 }}
+                      transition={{ type: 'spring', stiffness: 400 }}
                     >
                       <Link
                         to={`/anime/${anime.mal_id}`}
-                        className="flex gap-4 bg-card rounded-xl p-4 border border-border hover:border-primary/50 transition-colors"
+                        className="flex gap-4 bg-card rounded-xl p-4 border border-border hover:border-primary/50 transition-all shadow-sm hover:shadow-md"
                       >
-                        <img
-                          src={anime.images?.jpg?.image_url}
-                          alt={anime.title}
-                          className="w-16 h-24 object-cover rounded-lg flex-shrink-0"
-                        />
+                        <div className="relative flex-shrink-0">
+                          <img
+                            src={anime.images?.jpg?.image_url}
+                            alt={anime.title}
+                            className="w-16 h-24 object-cover rounded-lg"
+                          />
+                          {anime.airing && (
+                            <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full animate-pulse" />
+                          )}
+                        </div>
                         <div className="flex-1 min-w-0">
                           <h3 className="font-semibold text-foreground line-clamp-1">{anime.title}</h3>
                           {anime.title_japanese && (
@@ -104,16 +139,22 @@ export default function SchedulePage() {
                               {anime.title_japanese}
                             </p>
                           )}
-                          <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
+                          <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground flex-wrap">
                             <span className="flex items-center gap-1">
                               <Clock className="w-4 h-4" />
-                              {formatTime(anime.broadcast?.time)}
+                              {formatTime(anime.broadcast)}
                             </span>
                             {anime.episodes && (
-                              <span>{anime.episodes} episodes</span>
+                              <span className="flex items-center gap-1">
+                                <Tv className="w-4 h-4" />
+                                {anime.episodes} eps
+                              </span>
                             )}
                             {anime.score && (
-                              <span>★ {anime.score}</span>
+                              <span className="flex items-center gap-1 text-primary">
+                                <Star className="w-4 h-4 fill-current" />
+                                {anime.score}
+                              </span>
                             )}
                           </div>
                           {anime.genres?.length > 0 && (
@@ -132,11 +173,15 @@ export default function SchedulePage() {
                       </Link>
                     </motion.div>
                   ))}
-                </div>
+                </motion.div>
               ) : (
-                <div className="text-center py-20">
+                <motion.div 
+                  className="text-center py-20"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                >
                   <p className="text-muted-foreground">No anime scheduled for this day</p>
-                </div>
+                </motion.div>
               )}
             </TabsContent>
           ))}

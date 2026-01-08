@@ -1,7 +1,9 @@
-import { ReactNode, useEffect } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
 import { Header } from './Header';
 import { Footer } from './Footer';
 import { RainEffect } from '../effects/RainEffect';
+import { SnowEffect } from '../effects/SnowEffect';
+import { ScrollToTop } from '../ui/ScrollToTop';
 
 interface LayoutProps {
   children: ReactNode;
@@ -9,10 +11,25 @@ interface LayoutProps {
 }
 
 export function Layout({ children, showRain = false }: LayoutProps) {
+  const [showSnow, setShowSnow] = useState(() => {
+    return localStorage.getItem('showSnow') === 'true';
+  });
+
   useEffect(() => {
-    // Add dark class to document for consistent theming
-    document.documentElement.classList.add('dark');
+    // Check theme preference
+    const storedTheme = localStorage.getItem('theme');
+    if (storedTheme === 'dark' || (!storedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
   }, []);
+
+  const toggleSnow = () => {
+    const newValue = !showSnow;
+    setShowSnow(newValue);
+    localStorage.setItem('showSnow', String(newValue));
+  };
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -22,13 +39,18 @@ export function Layout({ children, showRain = false }: LayoutProps) {
       {/* Optional rain effect */}
       {showRain && <RainEffect />}
       
-      <Header />
+      {/* Optional snow effect */}
+      {showSnow && <SnowEffect />}
+      
+      <Header showSnow={showSnow} onToggleSnow={toggleSnow} />
       
       <main className="flex-1 pt-16">
         {children}
       </main>
       
       <Footer />
+      
+      <ScrollToTop />
     </div>
   );
 }

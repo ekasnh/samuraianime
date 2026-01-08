@@ -4,6 +4,7 @@ const CONSUMET_BASE = 'https://my-anime-api-backend.onrender.com';
 const ANILIST_API = 'https://graphql.anilist.co';
 const JIKAN_API = 'https://api.jikan.moe/v4';
 const MANGADEX_API = 'https://api.mangadex.org';
+const KITSU_API = 'https://kitsu.io/api/edge';
 const NEKOS_API = 'https://nekos.best/api/v2';
 const WAIFU_API = 'https://api.waifu.pics';
 
@@ -249,19 +250,68 @@ export async function fetchEpisodeStreams(episodeId: string) {
 
 // Jikan API for schedules
 export async function fetchAiringSchedule(day?: string) {
-  const endpoint = day 
-    ? `${JIKAN_API}/schedules/${day}`
-    : `${JIKAN_API}/schedules`;
-  
-  const response = await fetchWithRetry(endpoint);
-  const data = await response.json();
-  return data?.data || [];
+  const cacheKey = `schedule_${day || 'all'}`;
+  const cached = getCached<any>(cacheKey);
+  if (cached) return cached;
+
+  try {
+    // Jikan has rate limiting - add delay between requests
+    await new Promise(resolve => setTimeout(resolve, 400));
+    
+    const endpoint = day 
+      ? `${JIKAN_API}/schedules?filter=${day}`
+      : `${JIKAN_API}/schedules`;
+    
+    const response = await fetchWithRetry(endpoint);
+    const data = await response.json();
+    const result = data?.data || [];
+    
+    if (result.length > 0) {
+      setCache(cacheKey, result);
+    }
+    return result;
+  } catch (error) {
+    console.error('Schedule fetch error:', error);
+    return [];
+  }
 }
 
 export async function fetchTopAnime(filter = 'airing', page = 1) {
   const response = await fetchWithRetry(`${JIKAN_API}/top/anime?filter=${filter}&page=${page}`);
   const data = await response.json();
   return data?.data || [];
+}
+
+// Kitsu API for manga
+export async function fetchKitsuManga(params: {
+  search?: string;
+  limit?: number;
+  offset?: number;
+  sort?: string;
+}) {
+  const queryParams = new URLSearchParams();
+  if (params.search) queryParams.append('filter[text]', params.search);
+  queryParams.append('page[limit]', String(params.limit || 20));
+  queryParams.append('page[offset]', String(params.offset || 0));
+  queryParams.append('sort', params.sort || '-userCount');
+
+  const response = await fetchWithRetry(`${KITSU_API}/manga?${queryParams}`, {
+    headers: {
+      'Accept': 'application/vnd.api+json',
+      'Content-Type': 'application/vnd.api+json',
+    }
+  });
+  return response.json();
+}
+
+export async function fetchKitsuMangaDetails(id: string) {
+  const response = await fetchWithRetry(`${KITSU_API}/manga/${id}`, {
+    headers: {
+      'Accept': 'application/vnd.api+json',
+      'Content-Type': 'application/vnd.api+json',
+    }
+  });
+  return response.json();
 }
 
 // MangaDex API
