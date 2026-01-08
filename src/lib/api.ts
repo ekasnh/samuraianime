@@ -7,6 +7,10 @@ const MANGADEX_API = 'https://api.mangadex.org';
 const KITSU_API = 'https://kitsu.io/api/edge';
 const NEKOS_API = 'https://nekos.best/api/v2';
 const WAIFU_API = 'https://api.waifu.pics';
+const TRACE_MOE_API = 'https://api.trace.moe';
+const SHIKIMORI_API = 'https://shikimori.one/api';
+const ANIMECHAN_API = 'https://animechan.io/api/v1';
+const ANINEWS_API = 'https://api.jikan.moe/v4/anime/1/news'; // Using Jikan news endpoint
 
 // Retry with exponential backoff
 async function fetchWithRetry(url: string, options?: RequestInit, retries = 3): Promise<Response> {
@@ -443,4 +447,103 @@ export function getPreferredDub(): boolean {
 
 export function setPreferredDub(dub: boolean): void {
   localStorage.setItem('preferDub', String(dub));
+}
+
+// Trace.moe API - Image search
+export async function searchByImage(file: File): Promise<any> {
+  const formData = new FormData();
+  formData.append('image', file);
+
+  const response = await fetch(`${TRACE_MOE_API}/search`, {
+    method: 'POST',
+    body: formData,
+  });
+  return response.json();
+}
+
+// Shikimori API
+export async function fetchShikimoriAnime(id: number): Promise<any> {
+  const response = await fetchWithRetry(`${SHIKIMORI_API}/animes/${id}`, {
+    headers: {
+      'User-Agent': 'SAMURAI Anime Platform',
+    },
+  });
+  return response.json();
+}
+
+export async function fetchShikimoriTop(limit = 20): Promise<any> {
+  const response = await fetchWithRetry(`${SHIKIMORI_API}/animes?limit=${limit}&order=ranked`, {
+    headers: {
+      'User-Agent': 'SAMURAI Anime Platform',
+    },
+  });
+  return response.json();
+}
+
+// AnimeChan API - Random quotes
+export async function fetchAnimeQuote(): Promise<{ quote: string; character: string; anime: string }> {
+  const response = await fetchWithRetry(`${ANIMECHAN_API}/quotes/random`);
+  const data = await response.json();
+  return {
+    quote: data.data?.content || data.quote || 'The world is cruel, but also very beautiful.',
+    character: data.data?.character?.name || data.character || 'Unknown',
+    anime: data.data?.anime?.name || data.anime || 'Unknown',
+  };
+}
+
+// Anime News using Jikan
+export async function fetchAnimeNews(): Promise<any[]> {
+  try {
+    // Fetch news from multiple popular anime
+    const animeIds = [21, 1535, 16498, 30276, 38000]; // Popular anime IDs
+    const newsPromises = animeIds.map(async (id) => {
+      await new Promise(resolve => setTimeout(resolve, 400)); // Rate limit
+      const response = await fetchWithRetry(`${JIKAN_API}/anime/${id}/news`);
+      const data = await response.json();
+      return data?.data || [];
+    });
+
+    const allNews = await Promise.all(newsPromises);
+    const flatNews = allNews.flat();
+    
+    // Sort by date and remove duplicates
+    const uniqueNews = flatNews.reduce((acc: any[], curr) => {
+      if (!acc.find(n => n.mal_id === curr.mal_id)) {
+        acc.push({
+          title: curr.title,
+          url: curr.url,
+          uploadedAt: curr.date ? new Date(curr.date).toLocaleDateString() : 'Recent',
+          topics: curr.author_username ? [curr.author_username] : [],
+          thumbnail: curr.images?.jpg?.image_url,
+          intro: curr.excerpt,
+        });
+      }
+      return acc;
+    }, []);
+
+    return uniqueNews.slice(0, 12);
+  } catch (error) {
+    console.error('Failed to fetch news:', error);
+    return [];
+  }
+}
+
+// Consumet MangaDex Provider
+export async function fetchConsumetManga(query: string = ''): Promise<any> {
+  const endpoint = query 
+    ? `${CONSUMET_BASE}/manga/mangadex/${encodeURIComponent(query)}`
+    : `${CONSUMET_BASE}/manga/mangadex/popular`;
+  
+  const response = await fetchWithRetry(endpoint);
+  return response.json();
+}
+
+export async function fetchConsumetMangaInfo(mangaId: string): Promise<any> {
+  const response = await fetchWithRetry(`${CONSUMET_BASE}/manga/mangadex/info/${mangaId}`);
+  return response.json();
+}
+
+export async function fetchConsumetMangaChapters(chapterId: string): Promise<any> {
+  const response = await fetchWithRetry(`${CONSUMET_BASE}/manga/mangadex/read/${chapterId}`);
+  return response.json();
 }

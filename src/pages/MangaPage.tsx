@@ -5,7 +5,7 @@ import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
-import { fetchKitsuManga } from '@/lib/api';
+import { fetchConsumetManga } from '@/lib/api';
 import { Link } from 'react-router-dom';
 
 export default function MangaPage() {
@@ -16,11 +16,8 @@ export default function MangaPage() {
   const fetchManga = async (search = '') => {
     setLoading(true);
     try {
-      const result = await fetchKitsuManga({ 
-        search: search || undefined,
-        limit: 20,
-      });
-      setManga(result?.data || []);
+      const result = await fetchConsumetManga(search);
+      setManga(result?.results || []);
     } catch (error) {
       console.error('Failed to fetch manga:', error);
     } finally {
@@ -35,19 +32,6 @@ export default function MangaPage() {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     fetchManga(searchQuery);
-  };
-
-  const getCoverUrl = (item: any) => {
-    return item.attributes?.posterImage?.medium || 
-           item.attributes?.posterImage?.small || 
-           '/placeholder.svg';
-  };
-
-  const getTitle = (item: any) => {
-    return item.attributes?.canonicalTitle || 
-           item.attributes?.titles?.en || 
-           item.attributes?.titles?.en_jp || 
-           'Unknown';
   };
 
   const container = {
@@ -127,8 +111,8 @@ export default function MangaPage() {
                 <Link to={`/manga/${mangaItem.id}`} className="block group">
                   <div className="anime-card aspect-[3/4] relative overflow-hidden">
                     <img
-                      src={getCoverUrl(mangaItem)}
-                      alt={getTitle(mangaItem)}
+                      src={mangaItem.image || '/placeholder.svg'}
+                      alt={mangaItem.title}
                       className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
                       loading="lazy"
                     />
@@ -136,28 +120,28 @@ export default function MangaPage() {
                     <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent opacity-80 group-hover:opacity-90 transition-opacity" />
                     
                     {/* Status badge */}
-                    {mangaItem.attributes?.status && (
+                    {mangaItem.status && (
                       <div className="absolute top-3 right-3 px-2 py-1 bg-background/80 backdrop-blur-sm rounded-lg text-xs font-medium capitalize">
-                        {mangaItem.attributes.status}
+                        {mangaItem.status}
                       </div>
                     )}
 
                     {/* Rating */}
-                    {mangaItem.attributes?.averageRating && (
+                    {mangaItem.rating && (
                       <div className="absolute top-3 left-3 px-2 py-1 bg-primary/90 backdrop-blur-sm rounded-lg text-xs font-medium flex items-center gap-1">
                         <Star className="w-3 h-3 fill-current" />
-                        {(parseFloat(mangaItem.attributes.averageRating) / 10).toFixed(1)}
+                        {mangaItem.rating}
                       </div>
                     )}
                     
                     <div className="absolute bottom-0 left-0 right-0 p-4">
                       <h3 className="font-semibold text-white text-sm line-clamp-2 group-hover:text-primary transition-colors">
-                        {getTitle(mangaItem)}
+                        {mangaItem.title}
                       </h3>
                       
-                      {mangaItem.attributes?.startDate && (
+                      {mangaItem.releaseDate && (
                         <p className="text-xs text-white/70 mt-1">
-                          {new Date(mangaItem.attributes.startDate).getFullYear()}
+                          {mangaItem.releaseDate}
                         </p>
                       )}
                     </div>

@@ -1,30 +1,56 @@
-import { useMemo } from 'react';
+import { useEffect, useRef } from 'react';
+import gsap from 'gsap';
 
 export function RainEffect() {
-  const rainDrops = useMemo(() => {
-    return Array.from({ length: 100 }, (_, i) => ({
-      id: i,
-      left: `${Math.random() * 100}%`,
-      delay: `${Math.random() * 3}s`,
-      duration: `${0.8 + Math.random() * 0.5}s`,
-      opacity: 0.1 + Math.random() * 0.2,
-    }));
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+
+    const container = containerRef.current;
+    const rainDrops: HTMLDivElement[] = [];
+
+    // Create rain drops
+    for (let i = 0; i < 100; i++) {
+      const drop = document.createElement('div');
+      drop.className = 'rain-drop';
+      drop.style.left = `${Math.random() * 100}%`;
+      drop.style.opacity = `${0.1 + Math.random() * 0.3}`;
+      container.appendChild(drop);
+      rainDrops.push(drop);
+    }
+
+    // Animate each drop with GSAP
+    rainDrops.forEach((drop) => {
+      const animateDrop = () => {
+        const duration = 0.6 + Math.random() * 0.4;
+        const delay = Math.random() * 2;
+
+        gsap.set(drop, {
+          y: -20,
+          x: Math.random() * 10 - 5,
+        });
+
+        gsap.to(drop, {
+          y: window.innerHeight + 20,
+          duration,
+          delay,
+          ease: 'none',
+          onComplete: animateDrop,
+        });
+      };
+
+      animateDrop();
+    });
+
+    return () => {
+      // Cleanup
+      rainDrops.forEach((drop) => {
+        gsap.killTweensOf(drop);
+        drop.remove();
+      });
+    };
   }, []);
 
-  return (
-    <div className="rain-container">
-      {rainDrops.map(drop => (
-        <div
-          key={drop.id}
-          className="rain-drop"
-          style={{
-            left: drop.left,
-            animationDelay: drop.delay,
-            animationDuration: drop.duration,
-            opacity: drop.opacity,
-          }}
-        />
-      ))}
-    </div>
-  );
+  return <div ref={containerRef} className="rain-container" />;
 }
