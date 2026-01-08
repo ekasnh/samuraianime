@@ -1,154 +1,224 @@
-import { motion } from 'framer-motion';
+import { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { RainEffect } from '@/components/effects/RainEffect';
-import samuraiSilhouette from '@/assets/samurai-silhouette.png';
-import grassSilhouette from '@/assets/grass-silhouette.png';
+import { ChevronLeft, ChevronRight, Play } from 'lucide-react';
+import { fetchTrendingAnime } from '@/lib/api';
+
+interface AnimeSlide {
+  id: number;
+  title: string;
+  description: string;
+  image: string;
+  genres: string[];
+}
 
 export function HeroSection() {
+  const [slides, setSlides] = useState<AnimeSlide[]>([]);
+  const [currentSlide, setCurrentSlide] = useState(0);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadTrending = async () => {
+      try {
+        const data = await fetchTrendingAnime(1, 5);
+        const formatted = data.media.map((anime: any) => ({
+          id: anime.id,
+          title: anime.title.english || anime.title.romaji,
+          description: anime.description?.replace(/<[^>]*>/g, '').slice(0, 150) + '...' || '',
+          image: anime.bannerImage || anime.coverImage.extraLarge,
+          genres: anime.genres?.slice(0, 3) || [],
+        }));
+        setSlides(formatted);
+      } catch (error) {
+        console.error('Failed to load trending anime:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadTrending();
+  }, []);
+
+  useEffect(() => {
+    if (slides.length === 0) return;
+    const interval = setInterval(() => {
+      setCurrentSlide((prev) => (prev + 1) % slides.length);
+    }, 6000);
+    return () => clearInterval(interval);
+  }, [slides.length]);
+
+  const nextSlide = () => setCurrentSlide((prev) => (prev + 1) % slides.length);
+  const prevSlide = () => setCurrentSlide((prev) => (prev - 1 + slides.length) % slides.length);
+
+  if (loading || slides.length === 0) {
+    return (
+      <section className="relative h-screen min-h-[600px] max-h-[800px] overflow-hidden bg-gradient-to-b from-secondary/50 to-background">
+        <RainEffect />
+        <div className="absolute inset-0 bg-gradient-to-r from-background via-background/80 to-transparent" />
+        <div className="container mx-auto px-4 relative z-30 h-full flex flex-col justify-center">
+          <div className="max-w-2xl animate-pulse">
+            <div className="h-12 bg-muted rounded w-3/4 mb-4" />
+            <div className="h-4 bg-muted rounded w-full mb-2" />
+            <div className="h-4 bg-muted rounded w-2/3" />
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  const current = slides[currentSlide];
+
   return (
-    <section className="relative h-screen min-h-[700px] max-h-[900px] overflow-hidden bg-gradient-to-b from-secondary/50 to-background">
+    <section className="relative h-screen min-h-[600px] max-h-[800px] overflow-hidden">
       {/* Rain Effect */}
       <RainEffect />
-      
-      {/* Background gradient with grain texture */}
-      <div className="absolute inset-0 bg-gradient-to-br from-muted/30 via-background to-background" />
-      <div className="absolute inset-0 grain-overlay opacity-30" />
-      
-      {/* Large Japanese character watermark */}
-      <motion.div 
-        initial={{ opacity: 0, x: 50 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ duration: 1.2, delay: 0.5 }}
-        className="absolute right-10 top-1/2 -translate-y-1/2 font-japanese text-[400px] font-black text-foreground/[0.03] leading-none select-none pointer-events-none hidden lg:block"
-      >
-        年
-      </motion.div>
 
-      {/* Rising Sun with pulse animation */}
-      <motion.div 
-        initial={{ scale: 0.8, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        transition={{ duration: 1, ease: "easeOut" }}
-        className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] md:w-[600px] md:h-[600px]"
-      >
-        <div className="w-full h-full rounded-full bg-primary/80 animate-pulse-glow" />
-      </motion.div>
+      {/* Background Image with Parallax */}
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={currentSlide}
+          initial={{ opacity: 0, scale: 1.1 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.8 }}
+          className="absolute inset-0"
+        >
+          <img
+            src={current.image}
+            alt={current.title}
+            className="w-full h-full object-cover"
+          />
+          <div className="absolute inset-0 bg-gradient-to-r from-background via-background/70 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent" />
+        </motion.div>
+      </AnimatePresence>
 
-      {/* Samurai Silhouette with entrance animation */}
-      <motion.div
-        initial={{ opacity: 0, y: 50, scale: 0.9 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ duration: 1, delay: 0.3, ease: "easeOut" }}
-        className="absolute left-1/2 bottom-0 -translate-x-1/2 z-10"
-      >
-        <motion.img
-          src={samuraiSilhouette}
-          alt="Samurai"
-          className="h-[500px] md:h-[600px] lg:h-[700px] object-contain drop-shadow-2xl"
-          style={{ filter: 'brightness(0)' }}
-          animate={{ 
-            y: [0, -5, 0],
-          }}
-          transition={{ 
-            duration: 4,
-            repeat: Infinity,
-            ease: "easeInOut"
-          }}
-        />
-      </motion.div>
-
-      {/* Grass silhouette at bottom with wave animation */}
-      <motion.div 
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 1, delay: 0.5 }}
-        className="absolute bottom-0 left-0 right-0 z-20"
-      >
-        <img
-          src={grassSilhouette}
-          alt=""
-          className="w-full h-24 md:h-32 object-cover object-bottom"
-          style={{ filter: 'brightness(0)' }}
-        />
-      </motion.div>
+      {/* Grain Overlay */}
+      <div className="absolute inset-0 grain-overlay opacity-20 pointer-events-none" />
 
       {/* Content */}
       <div className="container mx-auto px-4 relative z-30 h-full flex flex-col justify-center">
         <div className="max-w-2xl">
-          <motion.div
-            initial={{ opacity: 0, x: -50 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.8, delay: 0.2 }}
-          >
-            <motion.h1 
-              className="japanese-title text-5xl md:text-6xl lg:text-7xl text-foreground whitespace-pre-line"
-              animate={{ 
-                textShadow: [
-                  "0 0 0px rgba(0,0,0,0)",
-                  "0 0 20px rgba(0,0,0,0.1)",
-                  "0 0 0px rgba(0,0,0,0)"
-                ]
-              }}
-              transition={{ duration: 3, repeat: Infinity }}
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={currentSlide}
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -30 }}
+              transition={{ duration: 0.5 }}
             >
-              {'自分自身の戦いを\n戦う少年'}
-            </motion.h1>
-          </motion.div>
+              {/* Genres */}
+              <motion.div className="flex gap-2 mb-4">
+                {current.genres.map((genre, i) => (
+                  <motion.span
+                    key={genre}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: i * 0.1 }}
+                    className="px-3 py-1 bg-primary/20 text-primary text-xs font-medium rounded-full border border-primary/30"
+                  >
+                    {genre}
+                  </motion.span>
+                ))}
+              </motion.div>
 
-          <motion.p
-            initial={{ opacity: 0, x: -30 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.8, delay: 0.4 }}
-            className="mt-6 text-muted-foreground text-base md:text-lg max-w-md leading-relaxed"
-          >
-            要するに、意味を持たずデザイン確認用として使える和文ダミーテキストです。要りますか？本当の日本語ランダム文字列版
-          </motion.p>
+              {/* Title */}
+              <motion.h1
+                className="text-4xl md:text-5xl lg:text-6xl font-bold text-foreground mb-4 leading-tight"
+                initial={{ opacity: 0, x: -50 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.2 }}
+              >
+                {current.title}
+              </motion.h1>
 
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.6 }}
-            className="flex flex-wrap gap-4 mt-8"
-          >
-            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-              <Button variant="hero" size="lg" asChild>
-                <a href="/anime">WATCH NOW</a>
-              </Button>
+              {/* Description */}
+              <motion.p
+                className="text-muted-foreground text-base md:text-lg max-w-xl leading-relaxed mb-6"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.3 }}
+              >
+                {current.description}
+              </motion.p>
+
+              {/* Buttons */}
+              <motion.div
+                className="flex flex-wrap gap-4"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.4 }}
+              >
+                <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                  <Button variant="hero" size="lg" asChild>
+                    <a href={`/anime/${current.id}`} className="flex items-center gap-2">
+                      <Play className="w-5 h-5" />
+                      WATCH NOW
+                    </a>
+                  </Button>
+                </motion.div>
+                <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                  <Button variant="heroOutline" size="lg" asChild>
+                    <a href="/manga">READ MANGA</a>
+                  </Button>
+                </motion.div>
+              </motion.div>
             </motion.div>
-            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-              <Button variant="heroOutline" size="lg" asChild>
-                <a href="/manga">READ MANGA</a>
-              </Button>
-            </motion.div>
-          </motion.div>
+          </AnimatePresence>
         </div>
       </div>
 
-      {/* Pagination dots (static, single active) */}
-      <motion.div 
-        initial={{ opacity: 0, x: -20 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ duration: 0.6, delay: 0.8 }}
-        className="absolute bottom-32 left-8 z-40 flex gap-3"
+      {/* Navigation Arrows */}
+      <div className="absolute bottom-1/2 left-4 z-40">
+        <motion.button
+          whileHover={{ scale: 1.1 }}
+          whileTap={{ scale: 0.9 }}
+          onClick={prevSlide}
+          className="p-2 rounded-full bg-background/50 backdrop-blur-sm border border-border hover:bg-background/80 transition-colors"
+        >
+          <ChevronLeft className="w-6 h-6 text-foreground" />
+        </motion.button>
+      </div>
+      <div className="absolute bottom-1/2 right-4 z-40">
+        <motion.button
+          whileHover={{ scale: 1.1 }}
+          whileTap={{ scale: 0.9 }}
+          onClick={nextSlide}
+          className="p-2 rounded-full bg-background/50 backdrop-blur-sm border border-border hover:bg-background/80 transition-colors"
+        >
+          <ChevronRight className="w-6 h-6 text-foreground" />
+        </motion.button>
+      </div>
+
+      {/* Slide Indicators */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.6 }}
+        className="absolute bottom-8 left-1/2 -translate-x-1/2 z-40 flex gap-2"
       >
-        <motion.div 
-          className="pagination-dot active"
-          animate={{ scale: [1, 1.2, 1] }}
-          transition={{ duration: 2, repeat: Infinity }}
-        />
-        <div className="pagination-dot" />
-        <div className="pagination-dot" />
+        {slides.map((_, index) => (
+          <button
+            key={index}
+            onClick={() => setCurrentSlide(index)}
+            className={`h-2 rounded-full transition-all duration-300 ${
+              index === currentSlide
+                ? 'w-8 bg-primary'
+                : 'w-2 bg-muted-foreground/50 hover:bg-muted-foreground'
+            }`}
+          />
+        ))}
       </motion.div>
 
       {/* Tagline */}
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, x: 20 }}
         animate={{ opacity: 1, x: 0 }}
-        transition={{ duration: 0.6, delay: 0.8 }}
-        className="absolute bottom-8 right-8 z-40"
+        transition={{ delay: 0.8 }}
+        className="absolute bottom-8 right-8 z-40 hidden md:block"
       >
-        <p className="font-japanese text-muted-foreground text-sm md:text-base">
-          マンガが大好きな人が作った
+        <p className="font-japanese text-muted-foreground text-sm">
+          アニメとマンガの世界へ
         </p>
       </motion.div>
     </section>
