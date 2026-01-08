@@ -3,6 +3,8 @@ import { motion } from 'framer-motion';
 import { Search, Heart, BookMarked, Menu, X } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { ThemeToggle } from '@/components/ui/ThemeToggle';
+import { SnowToggle } from '@/components/ui/SnowToggle';
 
 const navLinks = [
   { name: 'Home', path: '/' },
@@ -12,7 +14,12 @@ const navLinks = [
   { name: 'Wallpapers', path: '/wallpapers' },
 ];
 
-export function Header() {
+interface HeaderProps {
+  showSnow: boolean;
+  onToggleSnow: () => void;
+}
+
+export function Header({ showSnow, onToggleSnow }: HeaderProps) {
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -21,9 +28,13 @@ export function Header() {
       <div className="container mx-auto px-4 py-3 flex items-center justify-between">
         {/* Logo */}
         <Link to="/" className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
+          <motion.div 
+            className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center"
+            whileHover={{ scale: 1.1, rotate: 5 }}
+            transition={{ type: 'spring', stiffness: 400 }}
+          >
             <span className="font-japanese font-bold text-primary-foreground text-sm">侍</span>
-          </div>
+          </motion.div>
           <span className="font-bold text-lg tracking-wide text-foreground">SAMURAI</span>
         </Link>
 
@@ -48,7 +59,9 @@ export function Header() {
         </nav>
 
         {/* Actions */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1">
+          <ThemeToggle />
+          <SnowToggle isActive={showSnow} onToggle={onToggleSnow} />
           <Link to="/search" className="p-2 hover:bg-secondary rounded-lg transition-colors">
             <Search className="w-5 h-5 text-muted-foreground" />
           </Link>
