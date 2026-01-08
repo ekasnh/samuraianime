@@ -26,30 +26,29 @@ export default function MangaPage() {
   const fetchManga = async (search = '') => {
     setLoading(true);
     try {
-      // Use Consumet MangaDex endpoint
+      // Use Consumet MangaDex API
+      const baseUrl = 'https://api.consumet.org/manga/mangadex';
       const endpoint = search 
-        ? `https://my-anime-api-backend.onrender.com/manga/mangadex/${encodeURIComponent(search)}`
-        : `https://my-anime-api-backend.onrender.com/manga/mangadex/popular`;
+        ? `${baseUrl}/${encodeURIComponent(search)}`
+        : `${baseUrl}/popular`;
       
       const response = await fetch(endpoint);
       const data = await response.json();
       
-      // Handle different response structures
-      const results = data?.results || data?.data || [];
+      const results = data?.results || [];
       setManga(results.map((item: any) => ({
         id: item.id,
-        title: item.title || item.attributes?.title?.en || 'Unknown',
-        image: item.image || item.coverImage || '/placeholder.svg',
+        title: item.title || 'Unknown',
+        image: item.image || item.headerForImage || '/placeholder.svg',
         status: item.status,
-        releaseDate: item.releaseDate,
-        chapters: item.chapters,
+        releaseDate: item.releaseDate || item.lastChapter ? `Chapter ${item.lastChapter}` : undefined,
       })));
     } catch (error) {
-      console.error('Failed to fetch manga:', error);
+      console.error('Failed to fetch from Consumet:', error);
       // Fallback to MangaDex API directly
       try {
         const fallbackUrl = search
-          ? `https://api.mangadex.org/manga?title=${encodeURIComponent(search)}&limit=20&includes[]=cover_art`
+          ? `https://api.mangadex.org/manga?title=${encodeURIComponent(search)}&limit=20&includes[]=cover_art&order[latestUploadedChapter]=desc`
           : `https://api.mangadex.org/manga?limit=20&includes[]=cover_art&order[followedCount]=desc`;
         
         const response = await fetch(fallbackUrl);
@@ -59,7 +58,7 @@ export default function MangaPage() {
           const coverRel = item.relationships?.find((r: any) => r.type === 'cover_art');
           const coverFile = coverRel?.attributes?.fileName;
           const coverUrl = coverFile 
-            ? `https://uploads.mangadex.org/covers/${item.id}/${coverFile}.256.jpg`
+            ? `https://uploads.mangadex.org/covers/${item.id}/${coverFile}.512.jpg`
             : '/placeholder.svg';
           
           return {
@@ -67,7 +66,7 @@ export default function MangaPage() {
             title: item.attributes?.title?.en || item.attributes?.title?.['ja-ro'] || Object.values(item.attributes?.title || {})[0] || 'Unknown',
             image: coverUrl,
             status: item.attributes?.status,
-            releaseDate: item.attributes?.year?.toString(),
+            releaseDate: item.attributes?.year ? `Released ${item.attributes.year}` : undefined,
           };
         }));
       } catch (fallbackError) {
