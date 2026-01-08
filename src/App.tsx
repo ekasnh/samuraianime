@@ -8,11 +8,17 @@ import AnimePage from "./pages/AnimePage";
 import AnimeDetailPage from "./pages/AnimeDetailPage";
 import WatchPage from "./pages/WatchPage";
 import MangaPage from "./pages/MangaPage";
+import MangaReaderPage from "./pages/MangaReaderPage";
 import SchedulePage from "./pages/SchedulePage";
 import WallpapersPage from "./pages/WallpapersPage";
 import FavoritesPage from "./pages/FavoritesPage";
 import WatchlistPage from "./pages/WatchlistPage";
 import SearchPage from "./pages/SearchPage";
+import GhibliGalleryPage from "./pages/GhibliGalleryPage";
+import TriviaPage from "./pages/TriviaPage";
+import PokemonLookupPage from "./pages/PokemonLookupPage";
+import DragonBallPage from "./pages/DragonBallPage";
+import ShikimoriPage from "./pages/ShikimoriPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -29,11 +35,17 @@ const App = () => (
           <Route path="/anime/:id" element={<AnimeDetailPage />} />
           <Route path="/watch/:animeId/:episodeId" element={<WatchPage />} />
           <Route path="/manga" element={<MangaPage />} />
+          <Route path="/manga/:mangaId/read/:chapterId" element={<MangaReaderPage />} />
           <Route path="/schedule" element={<SchedulePage />} />
           <Route path="/wallpapers" element={<WallpapersPage />} />
           <Route path="/favorites" element={<FavoritesPage />} />
           <Route path="/watchlist" element={<WatchlistPage />} />
           <Route path="/search" element={<SearchPage />} />
+          <Route path="/ghibli" element={<GhibliGalleryPage />} />
+          <Route path="/trivia" element={<TriviaPage />} />
+          <Route path="/pokemon" element={<PokemonLookupPage />} />
+          <Route path="/dragonball" element={<DragonBallPage />} />
+          <Route path="/shikimori" element={<ShikimoriPage />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

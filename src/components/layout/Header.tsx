@@ -1,11 +1,12 @@
 import { Link, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Search, Heart, BookMarked, Menu, X } from 'lucide-react';
+import { Search, Heart, BookMarked, Menu, X, Bell } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { SnowToggle } from '@/components/ui/SnowToggle';
 import { ImageSearch } from '@/components/search/ImageSearch';
+import { EpisodeNotifications } from '@/components/notifications/EpisodeNotifications';
 
 const navLinks = [
   { name: 'Home', path: '/' },
@@ -63,6 +64,7 @@ export function Header({ showSnow, onToggleSnow }: HeaderProps) {
         <div className="flex items-center gap-1">
           <ThemeToggle />
           <SnowToggle isActive={showSnow} onToggle={onToggleSnow} />
+          <EpisodeNotifications />
           <ImageSearch />
           <Link to="/search" className="p-2 hover:bg-secondary rounded-lg transition-colors">
             <Search className="w-5 h-5 text-muted-foreground" />
