@@ -1,27 +1,81 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Search, Book, BookOpen, Star } from 'lucide-react';
+import { Search, Book, BookOpen, Star, Loader2 } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
-import { fetchConsumetManga } from '@/lib/api';
 import { Link } from 'react-router-dom';
 
+interface MangaItem {
+  id: string;
+  title: string;
+  image: string;
+  status?: string;
+  rating?: number;
+  releaseDate?: string;
+  chapters?: any[];
+}
+
 export default function MangaPage() {
-  const [manga, setManga] = useState<any[]>([]);
+  const [manga, setManga] = useState<MangaItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [searching, setSearching] = useState(false);
 
   const fetchManga = async (search = '') => {
     setLoading(true);
     try {
-      const result = await fetchConsumetManga(search);
-      setManga(result?.results || []);
+      // Use Consumet MangaDex endpoint
+      const endpoint = search 
+        ? `https://my-anime-api-backend.onrender.com/manga/mangadex/${encodeURIComponent(search)}`
+        : `https://my-anime-api-backend.onrender.com/manga/mangadex/popular`;
+      
+      const response = await fetch(endpoint);
+      const data = await response.json();
+      
+      // Handle different response structures
+      const results = data?.results || data?.data || [];
+      setManga(results.map((item: any) => ({
+        id: item.id,
+        title: item.title || item.attributes?.title?.en || 'Unknown',
+        image: item.image || item.coverImage || '/placeholder.svg',
+        status: item.status,
+        releaseDate: item.releaseDate,
+        chapters: item.chapters,
+      })));
     } catch (error) {
       console.error('Failed to fetch manga:', error);
+      // Fallback to MangaDex API directly
+      try {
+        const fallbackUrl = search
+          ? `https://api.mangadex.org/manga?title=${encodeURIComponent(search)}&limit=20&includes[]=cover_art`
+          : `https://api.mangadex.org/manga?limit=20&includes[]=cover_art&order[followedCount]=desc`;
+        
+        const response = await fetch(fallbackUrl);
+        const data = await response.json();
+        
+        setManga((data?.data || []).map((item: any) => {
+          const coverRel = item.relationships?.find((r: any) => r.type === 'cover_art');
+          const coverFile = coverRel?.attributes?.fileName;
+          const coverUrl = coverFile 
+            ? `https://uploads.mangadex.org/covers/${item.id}/${coverFile}.256.jpg`
+            : '/placeholder.svg';
+          
+          return {
+            id: item.id,
+            title: item.attributes?.title?.en || item.attributes?.title?.['ja-ro'] || Object.values(item.attributes?.title || {})[0] || 'Unknown',
+            image: coverUrl,
+            status: item.attributes?.status,
+            releaseDate: item.attributes?.year?.toString(),
+          };
+        }));
+      } catch (fallbackError) {
+        console.error('Fallback fetch also failed:', fallbackError);
+      }
     } finally {
       setLoading(false);
+      setSearching(false);
     }
   };
 
@@ -31,6 +85,7 @@ export default function MangaPage() {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
+    setSearching(true);
     fetchManga(searchQuery);
   };
 
@@ -60,7 +115,12 @@ export default function MangaPage() {
           transition={{ duration: 0.5 }}
         >
           <div className="flex items-center gap-3 mb-2">
-            <Book className="w-8 h-8 text-primary" />
+            <motion.div
+              animate={{ rotate: [0, 10, -10, 0] }}
+              transition={{ duration: 2, repeat: Infinity }}
+            >
+              <Book className="w-8 h-8 text-primary" />
+            </motion.div>
             <h1 className="text-3xl md:text-4xl font-bold text-foreground">Browse Manga</h1>
           </div>
           <p className="text-muted-foreground">Read thousands of manga chapters for free</p>
@@ -84,7 +144,9 @@ export default function MangaPage() {
               className="pl-10 bg-card border-border"
             />
           </div>
-          <Button type="submit">Search</Button>
+          <Button type="submit" disabled={searching}>
+            {searching ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Search'}
+          </Button>
         </motion.form>
 
         {/* Manga Grid */}
@@ -96,42 +158,49 @@ export default function MangaPage() {
         >
           {loading ? (
             Array.from({ length: 20 }).map((_, i) => (
-              <div key={i} className="aspect-[3/4]">
+              <motion.div 
+                key={i} 
+                className="aspect-[3/4]"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: i * 0.05 }}
+              >
                 <Skeleton className="w-full h-full rounded-xl" />
-              </div>
+              </motion.div>
             ))
           ) : (
-            manga.map((mangaItem) => (
+            manga.map((mangaItem, index) => (
               <motion.div
                 key={mangaItem.id}
                 variants={item}
-                whileHover={{ scale: 1.05 }}
+                whileHover={{ scale: 1.05, y: -10 }}
+                whileTap={{ scale: 0.98 }}
                 transition={{ type: 'spring', stiffness: 300 }}
               >
                 <Link to={`/manga/${mangaItem.id}`} className="block group">
-                  <div className="anime-card aspect-[3/4] relative overflow-hidden">
-                    <img
-                      src={mangaItem.image || '/placeholder.svg'}
+                  <div className="anime-card aspect-[3/4] relative overflow-hidden rounded-xl">
+                    <motion.img
+                      src={mangaItem.image}
                       alt={mangaItem.title}
-                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+                      className="w-full h-full object-cover"
                       loading="lazy"
+                      initial={{ scale: 1 }}
+                      whileHover={{ scale: 1.1 }}
+                      transition={{ duration: 0.5 }}
                     />
                     
                     <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent opacity-80 group-hover:opacity-90 transition-opacity" />
                     
                     {/* Status badge */}
                     {mangaItem.status && (
-                      <div className="absolute top-3 right-3 px-2 py-1 bg-background/80 backdrop-blur-sm rounded-lg text-xs font-medium capitalize">
+                      <motion.div 
+                        initial={{ opacity: 0, x: 20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: index * 0.05 + 0.2 }}
+                        className="absolute top-3 right-3 px-2 py-1 bg-background/80 backdrop-blur-sm rounded-lg text-xs font-medium capitalize"
+                      >
                         {mangaItem.status}
-                      </div>
-                    )}
-
-                    {/* Rating */}
-                    {mangaItem.rating && (
-                      <div className="absolute top-3 left-3 px-2 py-1 bg-primary/90 backdrop-blur-sm rounded-lg text-xs font-medium flex items-center gap-1">
-                        <Star className="w-3 h-3 fill-current" />
-                        {mangaItem.rating}
-                      </div>
+                      </motion.div>
                     )}
                     
                     <div className="absolute bottom-0 left-0 right-0 p-4">
@@ -170,10 +239,12 @@ export default function MangaPage() {
         {!loading && manga.length === 0 && (
           <motion.div 
             className="text-center py-20"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
           >
+            <Book className="w-16 h-16 mx-auto text-muted-foreground/30 mb-4" />
             <p className="text-xl text-muted-foreground">No manga found</p>
+            <p className="text-sm text-muted-foreground/70 mt-2">Try a different search term</p>
           </motion.div>
         )}
       </div>
