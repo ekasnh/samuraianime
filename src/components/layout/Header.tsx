@@ -127,8 +127,14 @@ export function Header({ showSnow, onToggleSnow }: HeaderProps) {
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-48 bg-card border-border">
-                  <DropdownMenuItem className="text-muted-foreground">
+                  <DropdownMenuItem className="text-muted-foreground text-xs">
                     {user.email}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild className="cursor-pointer">
+                    <Link to="/profile">
+                      <User className="w-4 h-4 mr-2" />
+                      Profile
+                    </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer text-destructive">
                     <LogOut className="w-4 h-4 mr-2" />

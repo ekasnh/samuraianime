@@ -19,6 +19,7 @@ import SearchPage from "./pages/SearchPage";
 import NewsPage from "./pages/NewsPage";
 import LoginPage from "./pages/LoginPage";
 import SignupPage from "./pages/SignupPage";
+import ProfilePage from "./pages/ProfilePage";
 import GhibliGalleryPage from "./pages/GhibliGalleryPage";
 import TriviaPage from "./pages/TriviaPage";
 import PokemonLookupPage from "./pages/PokemonLookupPage";
@@ -51,6 +52,7 @@ const App = () => (
             <Route path="/news" element={<NewsPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/signup" element={<SignupPage />} />
+            <Route path="/profile" element={<ProfilePage />} />
             <Route path="/ghibli" element={<GhibliGalleryPage />} />
             <Route path="/trivia" element={<TriviaPage />} />
             <Route path="/pokemon" element={<PokemonLookupPage />} />

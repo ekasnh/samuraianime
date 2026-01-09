@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Book, BookOpen, Heart, Bookmark, Calendar, Star, Loader2, ArrowLeft } from 'lucide-react';
+import { Book, BookOpen, Bookmark, Calendar, ArrowLeft } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -42,33 +42,58 @@ export default function MangaDetailPage() {
       
       setLoading(true);
       try {
-        // Fetch manga details from ComicK API
-        const response = await fetch(`https://api.comick.io/comic/${mangaId}`);
+        // Fetch manga details from MangaDex
+        const response = await fetch(
+          `https://api.mangadex.org/manga/${mangaId}?includes[]=cover_art&includes[]=author&includes[]=artist`
+        );
         const data = await response.json();
         
+        if (!data.data) throw new Error('Manga not found');
+        
+        const mangaData = data.data;
+        const coverRel = mangaData.relationships?.find((r: any) => r.type === 'cover_art');
+        const coverFile = coverRel?.attributes?.fileName;
+        const coverUrl = coverFile 
+          ? `https://uploads.mangadex.org/covers/${mangaId}/${coverFile}.512.jpg`
+          : '/placeholder.svg';
+        
+        const authors: string[] = mangaData.relationships
+          ?.filter((r: any) => r.type === 'author' || r.type === 'artist')
+          ?.map((r: any) => r.attributes?.name as string)
+          ?.filter((name: string | undefined): name is string => Boolean(name)) || [];
         // Fetch chapters
-        const chaptersRes = await fetch(`https://api.comick.io/comic/${mangaId}/chapters?lang=en&limit=100`);
+        const chaptersRes = await fetch(
+          `https://api.mangadex.org/manga/${mangaId}/feed?limit=100&translatedLanguage[]=en&order[chapter]=desc&includes[]=scanlation_group`
+        );
         const chaptersData = await chaptersRes.json();
         
-        const coverUrl = data.comic?.md_covers?.[0]?.b2key 
-          ? `https://meo.comick.pictures/${data.comic.md_covers[0].b2key}`
-          : '/placeholder.svg';
+        const title = mangaData.attributes?.title?.en 
+          || mangaData.attributes?.title?.['ja-ro'] 
+          || Object.values(mangaData.attributes?.title || {})[0] 
+          || 'Unknown';
+
+        const description = mangaData.attributes?.description?.en 
+          || Object.values(mangaData.attributes?.description || {})[0] 
+          || 'No description available.';
 
         setManga({
-          id: data.comic?.hid || mangaId,
-          title: data.comic?.title || 'Unknown',
-          description: data.comic?.desc || 'No description available.',
+          id: mangaId,
+          title: title as string,
+          description: description as string,
           image: coverUrl,
-          status: data.comic?.status === 1 ? 'Ongoing' : data.comic?.status === 2 ? 'Completed' : 'Unknown',
-          year: data.comic?.year,
-          genres: data.comic?.md_comic_md_genres?.map((g: any) => g.md_genres?.name).filter(Boolean) || [],
-          authors: data.authors?.map((a: any) => a.name) || [],
-          chapters: chaptersData.chapters?.map((ch: any) => ({
-            id: ch.hid,
-            chapter: ch.chap || '0',
-            title: ch.title,
-            updatedAt: ch.updated_at,
-          })) || [],
+          status: mangaData.attributes?.status || 'Unknown',
+          year: mangaData.attributes?.year,
+          genres: mangaData.attributes?.tags
+            ?.filter((t: any) => t.attributes?.group === 'genre')
+            ?.map((t: any) => t.attributes?.name?.en)
+            ?.filter(Boolean) || [],
+          authors: [...new Set(authors)],
+          chapters: (chaptersData.data || []).map((ch: any) => ({
+            id: ch.id,
+            chapter: ch.attributes?.chapter || '0',
+            title: ch.attributes?.title,
+            updatedAt: ch.attributes?.updatedAt,
+          })),
         });
 
         // Check if bookmarked
@@ -78,7 +103,7 @@ export default function MangaDetailPage() {
             .select('id')
             .eq('user_id', user.id)
             .eq('manga_id', mangaId)
-            .single();
+            .maybeSingle();
           
           setIsBookmarked(!!bookmark);
         }
@@ -185,6 +210,9 @@ export default function MangaDetailPage() {
               src={manga.image}
               alt={manga.title}
               className="w-full aspect-[3/4] object-cover rounded-xl shadow-lg"
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = '/placeholder.svg';
+              }}
             />
             
             <div className="flex gap-2 mt-4">
@@ -205,7 +233,7 @@ export default function MangaDetailPage() {
             
             {/* Meta */}
             <div className="flex flex-wrap gap-3 mb-4">
-              <span className="px-3 py-1 bg-primary/20 text-primary text-sm rounded-full">
+              <span className="px-3 py-1 bg-primary/20 text-primary text-sm rounded-full capitalize">
                 {manga.status}
               </span>
               {manga.year && (
@@ -236,7 +264,7 @@ export default function MangaDetailPage() {
             )}
 
             {/* Description */}
-            <p className="text-muted-foreground leading-relaxed mb-8">{manga.description}</p>
+            <p className="text-muted-foreground leading-relaxed mb-8 line-clamp-6">{manga.description}</p>
 
             {/* Chapters */}
             <div className="bg-card border border-border rounded-xl p-4">
@@ -247,25 +275,29 @@ export default function MangaDetailPage() {
               
               <ScrollArea className="h-[400px]">
                 <div className="space-y-2">
-                  {manga.chapters.map((chapter) => (
-                    <Link
-                      key={chapter.id}
-                      to={`/manga/${manga.id}/read/${chapter.id}`}
-                      className="block p-3 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors"
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="font-medium text-foreground">
-                          Chapter {chapter.chapter}
-                          {chapter.title && ` - ${chapter.title}`}
-                        </span>
-                        {chapter.updatedAt && (
-                          <span className="text-xs text-muted-foreground">
-                            {new Date(chapter.updatedAt).toLocaleDateString()}
+                  {manga.chapters.length > 0 ? (
+                    manga.chapters.map((chapter) => (
+                      <Link
+                        key={chapter.id}
+                        to={`/manga/${manga.id}/read/${chapter.id}`}
+                        className="block p-3 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-medium text-foreground">
+                            Chapter {chapter.chapter}
+                            {chapter.title && ` - ${chapter.title}`}
                           </span>
-                        )}
-                      </div>
-                    </Link>
-                  ))}
+                          {chapter.updatedAt && (
+                            <span className="text-xs text-muted-foreground">
+                              {new Date(chapter.updatedAt).toLocaleDateString()}
+                            </span>
+                          )}
+                        </div>
+                      </Link>
+                    ))
+                  ) : (
+                    <p className="text-center text-muted-foreground py-8">No chapters available in English</p>
+                  )}
                 </div>
               </ScrollArea>
             </div>
