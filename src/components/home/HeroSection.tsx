@@ -2,224 +2,209 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { RainEffect } from '@/components/effects/RainEffect';
-import { ChevronLeft, ChevronRight, Play } from 'lucide-react';
+import { ArrowUpRight, Play, Book, TrendingUp } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { fetchTrendingAnime } from '@/lib/api';
 
-interface AnimeSlide {
-  id: number;
-  title: string;
-  description: string;
-  image: string;
-  genres: string[];
-}
-
 export function HeroSection() {
-  const [slides, setSlides] = useState<AnimeSlide[]>([]);
-  const [currentSlide, setCurrentSlide] = useState(0);
+  const [animeImage, setAnimeImage] = useState<string>('/placeholder.svg');
   const [loading, setLoading] = useState(true);
+  const [episodesWatched, setEpisodesWatched] = useState(0);
+  const [chaptersRead, setChaptersRead] = useState(0);
 
   useEffect(() => {
-    const loadTrending = async () => {
+    // Load a featured anime image
+    const loadFeaturedImage = async () => {
       try {
-        const data = await fetchTrendingAnime(1, 5);
-        const formatted = data.media.map((anime: any) => ({
-          id: anime.id,
-          title: anime.title.english || anime.title.romaji,
-          description: anime.description?.replace(/<[^>]*>/g, '').slice(0, 150) + '...' || '',
-          image: anime.bannerImage || anime.coverImage.extraLarge,
-          genres: anime.genres?.slice(0, 3) || [],
-        }));
-        setSlides(formatted);
+        const data = await fetchTrendingAnime(1, 1);
+        if (data && data.length > 0) {
+          const anime = data[0];
+          setAnimeImage(anime.coverImage?.extraLarge || anime.coverImage?.large || '/placeholder.svg');
+        }
       } catch (error) {
-        console.error('Failed to load trending anime:', error);
+        console.error('Failed to load featured anime:', error);
       } finally {
         setLoading(false);
       }
     };
-    loadTrending();
+
+    // Get stats from localStorage
+    const watchProgress = JSON.parse(localStorage.getItem('watchProgress') || '[]');
+    const readProgress = JSON.parse(localStorage.getItem('readingProgress') || '[]');
+    setEpisodesWatched(watchProgress.length || 120);
+    setChaptersRead(readProgress.length || 350);
+
+    loadFeaturedImage();
   }, []);
 
-  useEffect(() => {
-    if (slides.length === 0) return;
-    const interval = setInterval(() => {
-      setCurrentSlide((prev) => (prev + 1) % slides.length);
-    }, 6000);
-    return () => clearInterval(interval);
-  }, [slides.length]);
-
-  const nextSlide = () => setCurrentSlide((prev) => (prev + 1) % slides.length);
-  const prevSlide = () => setCurrentSlide((prev) => (prev - 1 + slides.length) % slides.length);
-
-  if (loading || slides.length === 0) {
-    return (
-      <section className="relative h-screen min-h-[600px] max-h-[800px] overflow-hidden bg-gradient-to-b from-secondary/50 to-background">
-        <RainEffect />
-        <div className="absolute inset-0 bg-gradient-to-r from-background via-background/80 to-transparent" />
-        <div className="container mx-auto px-4 relative z-30 h-full flex flex-col justify-center">
-          <div className="max-w-2xl animate-pulse">
-            <div className="h-12 bg-muted rounded w-3/4 mb-4" />
-            <div className="h-4 bg-muted rounded w-full mb-2" />
-            <div className="h-4 bg-muted rounded w-2/3" />
-          </div>
-        </div>
-      </section>
-    );
-  }
-
-  const current = slides[currentSlide];
-
   return (
-    <section className="relative h-screen min-h-[600px] max-h-[800px] overflow-hidden">
+    <section className="relative min-h-screen overflow-hidden bg-gradient-to-br from-amber-50/80 via-orange-50/50 to-yellow-50/80 dark:from-background dark:via-background dark:to-background">
       {/* Rain Effect */}
       <RainEffect />
 
-      {/* Background Image with Parallax */}
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={currentSlide}
-          initial={{ opacity: 0, scale: 1.1 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.8 }}
-          className="absolute inset-0"
-        >
-          <img
-            src={current.image}
-            alt={current.title}
-            className="w-full h-full object-cover"
-          />
-          <div className="absolute inset-0 bg-gradient-to-r from-background via-background/70 to-transparent" />
-          <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent" />
-        </motion.div>
-      </AnimatePresence>
+      {/* Decorative circles */}
+      <div className="absolute top-20 right-20 w-96 h-96 rounded-full border border-primary/20 opacity-50" />
+      <div className="absolute top-40 right-40 w-64 h-64 rounded-full border border-primary/30 opacity-30" />
+      <div className="absolute -bottom-20 -left-20 w-80 h-80 rounded-full bg-primary/5 blur-3xl" />
 
-      {/* Grain Overlay */}
-      <div className="absolute inset-0 grain-overlay opacity-20 pointer-events-none" />
-
-      {/* Content */}
-      <div className="container mx-auto px-4 relative z-30 h-full flex flex-col justify-center">
-        <div className="max-w-2xl">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={currentSlide}
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -30 }}
-              transition={{ duration: 0.5 }}
-            >
-              {/* Genres */}
-              <motion.div className="flex gap-2 mb-4">
-                {current.genres.map((genre, i) => (
-                  <motion.span
-                    key={genre}
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: i * 0.1 }}
-                    className="px-3 py-1 bg-primary/20 text-primary text-xs font-medium rounded-full border border-primary/30"
-                  >
-                    {genre}
-                  </motion.span>
-                ))}
+      {/* Main Content */}
+      <div className="container mx-auto px-4 relative z-10 min-h-screen flex items-center">
+        <div className="grid lg:grid-cols-2 gap-8 items-center w-full py-20">
+          {/* Left Content */}
+          <motion.div
+            initial={{ opacity: 0, x: -50 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.8 }}
+            className="order-2 lg:order-1"
+          >
+            {/* Side Icons */}
+            <div className="flex items-start gap-6">
+              <motion.div 
+                className="flex flex-col gap-4"
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.5 }}
+              >
+                <motion.div
+                  whileHover={{ scale: 1.1 }}
+                  className="w-12 h-12 rounded-full bg-primary flex items-center justify-center cursor-pointer"
+                >
+                  <TrendingUp className="w-5 h-5 text-primary-foreground" />
+                </motion.div>
+                <motion.div
+                  whileHover={{ scale: 1.1 }}
+                  className="w-12 h-12 rounded-full bg-card border border-border flex items-center justify-center cursor-pointer"
+                >
+                  <Play className="w-5 h-5 text-foreground" />
+                </motion.div>
+                <motion.div
+                  whileHover={{ scale: 1.1 }}
+                  className="w-12 h-12 rounded-full bg-card border border-border flex items-center justify-center cursor-pointer"
+                >
+                  <Book className="w-5 h-5 text-foreground" />
+                </motion.div>
               </motion.div>
 
               {/* Title */}
-              <motion.h1
-                className="text-4xl md:text-5xl lg:text-6xl font-bold text-foreground mb-4 leading-tight"
-                initial={{ opacity: 0, x: -50 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.2 }}
-              >
-                {current.title}
-              </motion.h1>
+              <div>
+                <motion.h1 
+                  className="text-4xl md:text-5xl lg:text-6xl font-bold text-foreground leading-tight"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.3 }}
+                >
+                  <span className="font-japanese">IMMERSE IN</span>
+                  <br />
+                  <span className="flex items-center gap-3">
+                    ANIME <span className="font-japanese text-primary">軍</span>
+                  </span>
+                  <span className="text-primary">MANGA</span>
+                </motion.h1>
+              </div>
+            </div>
 
-              {/* Description */}
-              <motion.p
-                className="text-muted-foreground text-base md:text-lg max-w-xl leading-relaxed mb-6"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.3 }}
-              >
-                {current.description}
-              </motion.p>
+            {/* CTA Buttons */}
+            <motion.div 
+              className="mt-10 flex flex-col sm:flex-row gap-4"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.6 }}
+            >
+              <div className="bg-card/80 backdrop-blur-sm border border-border rounded-2xl p-4 flex-1">
+                <p className="text-sm text-muted-foreground mb-1">Explore, Read, and</p>
+                <h3 className="text-2xl font-bold text-foreground font-japanese tracking-wider">ENJOY</h3>
+                <Link to="/manga">
+                  <Button variant="outline" className="mt-4 w-full group">
+                    Let's Explore
+                    <ArrowUpRight className="w-4 h-4 ml-2 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
+                  </Button>
+                </Link>
+              </div>
 
-              {/* Buttons */}
+              <div className="bg-card/80 backdrop-blur-sm border border-border rounded-2xl p-4 flex-1">
+                <p className="text-sm text-muted-foreground mb-1">Stream Anime and</p>
+                <h3 className="text-2xl font-bold text-foreground font-japanese tracking-wider">ENJOY</h3>
+                <Link to="/anime">
+                  <Button variant="hero" className="mt-4 w-full group">
+                    Watch
+                    <ArrowUpRight className="w-4 h-4 ml-2 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
+                  </Button>
+                </Link>
+              </div>
+            </motion.div>
+          </motion.div>
+
+          {/* Right Content - Character Image */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.8, delay: 0.2 }}
+            className="order-1 lg:order-2 relative flex justify-center"
+          >
+            {/* Character Image Placeholder - Dynamic trending anime */}
+            <div className="relative">
               <motion.div
-                className="flex flex-wrap gap-4"
+                animate={{ 
+                  y: [0, -10, 0],
+                }}
+                transition={{ 
+                  duration: 4,
+                  repeat: Infinity,
+                  ease: "easeInOut"
+                }}
+                className="relative z-10"
+              >
+                <div className="w-64 md:w-80 lg:w-96 aspect-[3/4] rounded-3xl overflow-hidden shadow-2xl">
+                  <img
+                    src={animeImage}
+                    alt="Featured Anime"
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = '/placeholder.svg';
+                    }}
+                  />
+                </div>
+              </motion.div>
+
+              {/* Stats Card */}
+              <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.4 }}
+                transition={{ delay: 0.8 }}
+                className="absolute -bottom-6 left-1/2 -translate-x-1/2 bg-card/95 backdrop-blur-md border border-border rounded-2xl p-4 shadow-xl flex gap-6 z-20"
               >
-                <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                  <Button variant="hero" size="lg" asChild>
-                    <a href={`/anime/${current.id}`} className="flex items-center gap-2">
-                      <Play className="w-5 h-5" />
-                      WATCH NOW
-                    </a>
-                  </Button>
-                </motion.div>
-                <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                  <Button variant="heroOutline" size="lg" asChild>
-                    <a href="/manga">READ MANGA</a>
-                  </Button>
+                <div className="text-center">
+                  <p className="text-xs text-muted-foreground">Complete</p>
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-2xl font-bold text-foreground">{episodesWatched}</span>
+                    <span className="text-xs text-muted-foreground">Episodes</span>
+                  </div>
+                </div>
+                <div className="w-px bg-border" />
+                <div className="text-center">
+                  <span className="text-2xl font-bold text-foreground">{chaptersRead}</span>
+                  <p className="text-xs text-muted-foreground">Chapters Read</p>
+                </div>
+                <motion.div
+                  whileHover={{ scale: 1.1 }}
+                  className="w-10 h-10 rounded-full bg-primary flex items-center justify-center cursor-pointer self-center"
+                >
+                  <ArrowUpRight className="w-5 h-5 text-primary-foreground" />
                 </motion.div>
               </motion.div>
-            </motion.div>
-          </AnimatePresence>
+            </div>
+          </motion.div>
         </div>
       </div>
 
-      {/* Navigation Arrows */}
-      <div className="absolute bottom-1/2 left-4 z-40">
-        <motion.button
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.9 }}
-          onClick={prevSlide}
-          className="p-2 rounded-full bg-background/50 backdrop-blur-sm border border-border hover:bg-background/80 transition-colors"
-        >
-          <ChevronLeft className="w-6 h-6 text-foreground" />
-        </motion.button>
-      </div>
-      <div className="absolute bottom-1/2 right-4 z-40">
-        <motion.button
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.9 }}
-          onClick={nextSlide}
-          className="p-2 rounded-full bg-background/50 backdrop-blur-sm border border-border hover:bg-background/80 transition-colors"
-        >
-          <ChevronRight className="w-6 h-6 text-foreground" />
-        </motion.button>
-      </div>
-
-      {/* Slide Indicators */}
+      {/* Japanese text decoration */}
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.6 }}
-        className="absolute bottom-8 left-1/2 -translate-x-1/2 z-40 flex gap-2"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 0.1 }}
+        transition={{ delay: 1 }}
+        className="absolute bottom-10 right-10 text-8xl font-japanese text-foreground pointer-events-none hidden lg:block"
       >
-        {slides.map((_, index) => (
-          <button
-            key={index}
-            onClick={() => setCurrentSlide(index)}
-            className={`h-2 rounded-full transition-all duration-300 ${
-              index === currentSlide
-                ? 'w-8 bg-primary'
-                : 'w-2 bg-muted-foreground/50 hover:bg-muted-foreground'
-            }`}
-          />
-        ))}
-      </motion.div>
-
-      {/* Tagline */}
-      <motion.div
-        initial={{ opacity: 0, x: 20 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ delay: 0.8 }}
-        className="absolute bottom-8 right-8 z-40 hidden md:block"
-      >
-        <p className="font-japanese text-muted-foreground text-sm">
-          アニメとマンガの世界へ
-        </p>
+        アニメ
       </motion.div>
     </section>
   );

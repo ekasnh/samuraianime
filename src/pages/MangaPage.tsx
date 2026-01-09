@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Search, Book, BookOpen, Star, Loader2 } from 'lucide-react';
+import { Search, Book, BookOpen, Loader2 } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,12 +9,12 @@ import { Link } from 'react-router-dom';
 
 interface MangaItem {
   id: string;
+  slug: string;
   title: string;
   image: string;
   status?: string;
-  rating?: number;
-  releaseDate?: string;
-  chapters?: any[];
+  lastChapter?: string;
+  year?: number;
 }
 
 export default function MangaPage() {
@@ -26,30 +26,39 @@ export default function MangaPage() {
   const fetchManga = async (search = '') => {
     setLoading(true);
     try {
-      // Use Consumet MangaDex API
-      const baseUrl = 'https://api.consumet.org/manga/mangadex';
+      // Use ComicK API
       const endpoint = search 
-        ? `${baseUrl}/${encodeURIComponent(search)}`
-        : `${baseUrl}/popular`;
+        ? `https://api.comick.io/v1.0/search?q=${encodeURIComponent(search)}&limit=30`
+        : `https://api.comick.io/top?comic_types=manga&accept_mature_content=false`;
       
       const response = await fetch(endpoint);
       const data = await response.json();
       
-      const results = data?.results || [];
-      setManga(results.map((item: any) => ({
-        id: item.id,
-        title: item.title || 'Unknown',
-        image: item.image || item.headerForImage || '/placeholder.svg',
-        status: item.status,
-        releaseDate: item.releaseDate || item.lastChapter ? `Chapter ${item.lastChapter}` : undefined,
-      })));
+      const results = search ? data : (data.rank || data);
+      
+      setManga((Array.isArray(results) ? results : []).map((item: any) => {
+        const comic = item.md_comics || item;
+        const coverUrl = comic.md_covers?.[0]?.b2key 
+          ? `https://meo.comick.pictures/${comic.md_covers[0].b2key}`
+          : '/placeholder.svg';
+        
+        return {
+          id: comic.hid || comic.slug || item.slug,
+          slug: comic.slug || item.slug,
+          title: comic.title || item.title || 'Unknown',
+          image: coverUrl,
+          status: comic.status === 1 ? 'Ongoing' : comic.status === 2 ? 'Completed' : undefined,
+          lastChapter: comic.last_chapter ? `Ch. ${comic.last_chapter}` : undefined,
+          year: comic.year,
+        };
+      }));
     } catch (error) {
-      console.error('Failed to fetch from Consumet:', error);
-      // Fallback to MangaDex API directly
+      console.error('Failed to fetch manga:', error);
+      // Fallback to MangaDex
       try {
         const fallbackUrl = search
-          ? `https://api.mangadex.org/manga?title=${encodeURIComponent(search)}&limit=20&includes[]=cover_art&order[latestUploadedChapter]=desc`
-          : `https://api.mangadex.org/manga?limit=20&includes[]=cover_art&order[followedCount]=desc`;
+          ? `https://api.mangadex.org/manga?title=${encodeURIComponent(search)}&limit=30&includes[]=cover_art`
+          : `https://api.mangadex.org/manga?limit=30&includes[]=cover_art&order[followedCount]=desc`;
         
         const response = await fetch(fallbackUrl);
         const data = await response.json();
@@ -63,14 +72,15 @@ export default function MangaPage() {
           
           return {
             id: item.id,
+            slug: item.id,
             title: item.attributes?.title?.en || item.attributes?.title?.['ja-ro'] || Object.values(item.attributes?.title || {})[0] || 'Unknown',
             image: coverUrl,
             status: item.attributes?.status,
-            releaseDate: item.attributes?.year ? `Released ${item.attributes.year}` : undefined,
+            year: item.attributes?.year,
           };
         }));
       } catch (fallbackError) {
-        console.error('Fallback fetch also failed:', fallbackError);
+        console.error('Fallback also failed:', fallbackError);
       }
     } finally {
       setLoading(false);
@@ -92,9 +102,7 @@ export default function MangaPage() {
     hidden: { opacity: 0 },
     show: {
       opacity: 1,
-      transition: {
-        staggerChildren: 0.05
-      }
+      transition: { staggerChildren: 0.05 }
     }
   };
 
@@ -186,6 +194,9 @@ export default function MangaPage() {
                       initial={{ scale: 1 }}
                       whileHover={{ scale: 1.1 }}
                       transition={{ duration: 0.5 }}
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = '/placeholder.svg';
+                      }}
                     />
                     
                     <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent opacity-80 group-hover:opacity-90 transition-opacity" />
@@ -207,11 +218,10 @@ export default function MangaPage() {
                         {mangaItem.title}
                       </h3>
                       
-                      {mangaItem.releaseDate && (
-                        <p className="text-xs text-white/70 mt-1">
-                          {mangaItem.releaseDate}
-                        </p>
-                      )}
+                      <div className="flex items-center gap-2 mt-1 text-xs text-white/70">
+                        {mangaItem.lastChapter && <span>{mangaItem.lastChapter}</span>}
+                        {mangaItem.year && <span>• {mangaItem.year}</span>}
+                      </div>
                     </div>
                     
                     {/* Read button on hover */}
