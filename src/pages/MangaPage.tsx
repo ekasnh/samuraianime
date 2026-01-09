@@ -9,7 +9,6 @@ import { Link } from 'react-router-dom';
 
 interface MangaItem {
   id: string;
-  slug: string;
   title: string;
   image: string;
   status?: string;
@@ -26,62 +25,40 @@ export default function MangaPage() {
   const fetchManga = async (search = '') => {
     setLoading(true);
     try {
-      // Use ComicK API
-      const endpoint = search 
-        ? `https://api.comick.io/v1.0/search?q=${encodeURIComponent(search)}&limit=30`
-        : `https://api.comick.io/top?comic_types=manga&accept_mature_content=false`;
+      // Use MangaDex API directly (CORS-friendly)
+      const endpoint = search
+        ? `https://api.mangadex.org/manga?title=${encodeURIComponent(search)}&limit=30&includes[]=cover_art&order[relevance]=desc`
+        : `https://api.mangadex.org/manga?limit=30&includes[]=cover_art&order[followedCount]=desc`;
       
       const response = await fetch(endpoint);
       const data = await response.json();
       
-      const results = search ? data : (data.rank || data);
+      const results = data?.data || [];
       
-      setManga((Array.isArray(results) ? results : []).map((item: any) => {
-        const comic = item.md_comics || item;
-        const coverUrl = comic.md_covers?.[0]?.b2key 
-          ? `https://meo.comick.pictures/${comic.md_covers[0].b2key}`
+      setManga(results.map((item: any) => {
+        const coverRel = item.relationships?.find((r: any) => r.type === 'cover_art');
+        const coverFile = coverRel?.attributes?.fileName;
+        const coverUrl = coverFile 
+          ? `https://uploads.mangadex.org/covers/${item.id}/${coverFile}.512.jpg`
           : '/placeholder.svg';
         
+        const title = item.attributes?.title?.en 
+          || item.attributes?.title?.['ja-ro'] 
+          || Object.values(item.attributes?.title || {})[0] 
+          || 'Unknown';
+        
         return {
-          id: comic.hid || comic.slug || item.slug,
-          slug: comic.slug || item.slug,
-          title: comic.title || item.title || 'Unknown',
+          id: item.id,
+          title: title as string,
           image: coverUrl,
-          status: comic.status === 1 ? 'Ongoing' : comic.status === 2 ? 'Completed' : undefined,
-          lastChapter: comic.last_chapter ? `Ch. ${comic.last_chapter}` : undefined,
-          year: comic.year,
+          status: item.attributes?.status,
+          lastChapter: item.attributes?.lastChapter ? `Ch. ${item.attributes.lastChapter}` : undefined,
+          year: item.attributes?.year,
         };
       }));
     } catch (error) {
       console.error('Failed to fetch manga:', error);
-      // Fallback to MangaDex
-      try {
-        const fallbackUrl = search
-          ? `https://api.mangadex.org/manga?title=${encodeURIComponent(search)}&limit=30&includes[]=cover_art`
-          : `https://api.mangadex.org/manga?limit=30&includes[]=cover_art&order[followedCount]=desc`;
-        
-        const response = await fetch(fallbackUrl);
-        const data = await response.json();
-        
-        setManga((data?.data || []).map((item: any) => {
-          const coverRel = item.relationships?.find((r: any) => r.type === 'cover_art');
-          const coverFile = coverRel?.attributes?.fileName;
-          const coverUrl = coverFile 
-            ? `https://uploads.mangadex.org/covers/${item.id}/${coverFile}.512.jpg`
-            : '/placeholder.svg';
-          
-          return {
-            id: item.id,
-            slug: item.id,
-            title: item.attributes?.title?.en || item.attributes?.title?.['ja-ro'] || Object.values(item.attributes?.title || {})[0] || 'Unknown',
-            image: coverUrl,
-            status: item.attributes?.status,
-            year: item.attributes?.year,
-          };
-        }));
-      } catch (fallbackError) {
-        console.error('Fallback also failed:', fallbackError);
-      }
+      setManga([]);
     } finally {
       setLoading(false);
       setSearching(false);

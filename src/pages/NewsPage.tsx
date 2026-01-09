@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Newspaper, ExternalLink, Calendar, Loader2 } from 'lucide-react';
+import { Newspaper, ExternalLink, Calendar } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -18,6 +18,9 @@ interface NewsItem {
   excerpt: string;
 }
 
+// Popular anime IDs for fetching news
+const POPULAR_ANIME_IDS = [21, 1535, 16498, 30276, 38000, 5114, 11757, 20, 1, 21459];
+
 export default function NewsPage() {
   const [news, setNews] = useState<NewsItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -25,16 +28,24 @@ export default function NewsPage() {
   useEffect(() => {
     const fetchNews = async () => {
       try {
-        // Fetch news from multiple popular anime
-        const animeIds = [21, 1535, 16498, 30276, 38000, 5114, 11757, 20, 1];
         const allNews: NewsItem[] = [];
 
-        for (const id of animeIds.slice(0, 3)) {
-          await new Promise(resolve => setTimeout(resolve, 400)); // Rate limit
-          const response = await fetch(`https://api.jikan.moe/v4/anime/${id}/news`);
-          const data = await response.json();
-          if (data?.data) {
-            allNews.push(...data.data.slice(0, 3));
+        // Fetch news from multiple popular anime with rate limiting
+        for (let i = 0; i < 3; i++) {
+          const animeId = POPULAR_ANIME_IDS[i];
+          try {
+            // Jikan API requires rate limiting (3 requests per second max)
+            await new Promise(resolve => setTimeout(resolve, 400));
+            
+            const response = await fetch(`https://api.jikan.moe/v4/anime/${animeId}/news`);
+            if (!response.ok) continue;
+            
+            const data = await response.json();
+            if (data?.data) {
+              allNews.push(...data.data.slice(0, 5));
+            }
+          } catch (error) {
+            console.error(`Failed to fetch news for anime ${animeId}:`, error);
           }
         }
 
@@ -93,7 +104,7 @@ export default function NewsPage() {
         {loading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {Array.from({ length: 9 }).map((_, i) => (
-              <Skeleton key={i} className="h-64 rounded-xl" />
+              <Skeleton key={i} className="h-80 rounded-xl" />
             ))}
           </div>
         ) : (
@@ -119,6 +130,9 @@ export default function NewsPage() {
                       src={newsItem.images.jpg.image_url}
                       alt={newsItem.title}
                       className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = 'none';
+                      }}
                     />
                   </div>
                 )}
@@ -126,7 +140,7 @@ export default function NewsPage() {
                   <h3 className="font-semibold text-foreground line-clamp-2 group-hover:text-primary transition-colors mb-2">
                     {newsItem.title}
                   </h3>
-                  <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
+                  <p className="text-sm text-muted-foreground line-clamp-3 mb-3">
                     {newsItem.excerpt}
                   </p>
                   <div className="flex items-center justify-between text-xs text-muted-foreground">
@@ -145,10 +159,15 @@ export default function NewsPage() {
         )}
 
         {!loading && news.length === 0 && (
-          <div className="text-center py-20">
+          <motion.div 
+            className="text-center py-20"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+          >
             <Newspaper className="w-16 h-16 mx-auto text-muted-foreground/30 mb-4" />
             <p className="text-xl text-muted-foreground">No news available</p>
-          </div>
+            <p className="text-sm text-muted-foreground/70 mt-2">Please try again later</p>
+          </motion.div>
         )}
       </div>
     </Layout>
